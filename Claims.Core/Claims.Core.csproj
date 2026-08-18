@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- This project intentionally has NO PackageReference entries.
+    Claims.Core holds the business rules: Keeping
+    it free of MongoDB, EF Core, ASP.NET and Testcontainers means those rules are
+    unit-testable without Docker or a database
+  -->
+
+</Project>

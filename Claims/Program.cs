@@ -1,30 +1,32 @@
-using Claims.Auditing;
-using Claims.Controllers;
-using Microsoft.EntityFrameworkCore;
-using MongoDB.Driver;
-using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Text.Json.Serialization;
-using Testcontainers.MongoDb;
-using Testcontainers.MsSql;
+using Claims;
+using Claims.Hosting;
+using Claims.Infrastructure;
+using Claims.Infrastructure.Auditing;
+using Claims.Middleware;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Start Testcontainers for SQL Server and MongoDB
-var sqlContainer = (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
-        ? new MsSqlBuilder()
-            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
-        : new()
+var persistence = builder.Configuration
+                      .GetSection(PersistenceOptions.SectionName)
+                      .Get<PersistenceOptions>()
+                  ?? new PersistenceOptions();
 
-    ).Build();
+// Development starts throwaway databases; hosted environments and integration tests
+// supply their own connection strings through configuration.
+await using var localContainers = persistence.UseTestContainers
+    ? await LocalContainers.StartAsync()
+    : null;
 
-var mongoContainer = new MongoDbBuilder()
-    .WithImage("mongo:latest")
-    .Build();
+if (localContainers is not null)
+{
+    persistence.Mongo.ConnectionString = localContainers.MongoConnectionString;
+    persistence.AuditDbConnectionString = localContainers.SqlConnectionString;
+}
 
-await sqlContainer.StartAsync();
-await mongoContainer.StartAsync();
-
-// Add services to the container.
 builder.Services
     .AddControllers()
     .AddJsonOptions(x =>
@@ -32,21 +34,38 @@ builder.Services
         x.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-builder.Services.AddDbContext<AuditContext>(options =>
-    options.UseSqlServer(sqlContainer.GetConnectionString()));
+builder.Services.AddClaimsCore();
+builder.Services.AddInfrastructure(builder.Configuration, persistence);
 
-builder.Services.AddDbContext<ClaimsContext>(options =>
-{
-    var client = new MongoClient(mongoContainer.GetConnectionString());
-    var database = client.GetDatabase(builder.Configuration["MongoDb:DatabaseName"]); // Use a default/test database name
-    options.UseMongoDB(database.Client, database.DatabaseNamespace.DatabaseName);
-});
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
+
+builder.Services.AddHealthChecks().AddCheck<PersistenceHealthCheck>("persistence");
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Insurance Claims API",
+        Version = "v1",
+        Description = "Maintains insurance covers and the claims made against them."
+    });
+
+    var xmlPath = Path.Combine(
+        AppContext.BaseDirectory,
+        $"{Assembly.GetExecutingAssembly().GetName().Name}.xml");
+
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+});
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -60,11 +79,12 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
-using (var scope = app.Services.CreateScope())
+if (persistence.ApplyMigrationsOnStartup)
 {
-    var context = scope.ServiceProvider.GetRequiredService<AuditContext>();
-    context.Database.Migrate();
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<AuditContext>().Database.MigrateAsync();
 }
 
 app.Run();
