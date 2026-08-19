@@ -1,8 +1,14 @@
 namespace Claims.Core.Features.Claims;
 
-public record CreateClaimCommand(
-    string CoverId,
-    string Name,
-    ClaimType Type,
-    decimal DamageCost,
-    DateOnly Created);
+public record CreateClaimCommand
+{
+    public required string CoverId { get; init; }
+
+    public required string Name { get; init; }
+
+    public required ClaimType Type { get; init; }
+
+    public required decimal DamageCost { get; init; }
+
+    public required DateOnly Created { get; init; }
+}

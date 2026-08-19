@@ -10,9 +10,9 @@ public class MongoOptions
 public class PersistenceOptions
 {
     public const string SectionName = "Persistence";
-    
+
     public bool UseTestContainers { get; set; }
-    
+
     public bool ApplyMigrationsOnStartup { get; set; } = true;
 
     public MongoOptions Mongo { get; set; } = new();

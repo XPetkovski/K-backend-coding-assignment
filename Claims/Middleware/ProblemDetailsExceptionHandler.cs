@@ -20,7 +20,9 @@ public class ProblemDetailsExceptionHandler : IExceptionHandler
     {
         ProblemDetails? problem = exception switch
         {
-            ValidationException validation => ToValidationProblem(validation),
+            ValidationException validation => ToValidationProblem(validation.Errors),
+            DomainException { Property: not null } domain =>
+                ToValidationProblem([new ValidationError(domain.Property, domain.Message)]),
             DomainException domain => new ProblemDetails
             {
                 Status = StatusCodes.Status400BadRequest,
@@ -56,9 +58,9 @@ public class ProblemDetailsExceptionHandler : IExceptionHandler
         return true;
     }
 
-    private static ValidationProblemDetails ToValidationProblem(ValidationException exception)
+    private static ValidationProblemDetails ToValidationProblem(IReadOnlyList<ValidationError> validationErrors)
     {
-        var errors = exception.Errors
+        var errors = validationErrors
             .GroupBy(error => error.Property)
             .ToDictionary(group => group.Key, group => group.Select(error => error.Message).ToArray());
 

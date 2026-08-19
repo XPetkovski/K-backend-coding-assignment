@@ -14,7 +14,7 @@ public class CoversController : ControllerBase
     {
         _covers = covers;
     }
-    
+
     /// <summary>Quotes the premium for a period without storing a cover.</summary>
     [HttpGet("compute")]
     [ProducesResponseType(StatusCodes.Status200OK)]

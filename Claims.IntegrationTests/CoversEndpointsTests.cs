@@ -15,7 +15,12 @@ public class CoversEndpointsTests : ApiTestBase
     [Fact]
     public async Task Creating_a_cover_returns_201_with_a_location_header()
     {
-        var command = new CreateCoverCommand(Today.AddDays(1), Today.AddDays(30), CoverType.Yacht);
+        var command = new CreateCoverCommand
+        {
+            StartDate = Today.AddDays(1),
+            EndDate = Today.AddDays(30),
+            Type = CoverType.Yacht
+        };
 
         var response = await Client.PostAsJsonAsync("/Covers", command, Json, Ct);
 
@@ -76,7 +81,12 @@ public class CoversEndpointsTests : ApiTestBase
     [Fact]
     public async Task A_start_date_in_the_past_returns_400_naming_the_field()
     {
-        var command = new CreateCoverCommand(Today.AddDays(-1), Today.AddDays(30), CoverType.Yacht);
+        var command = new CreateCoverCommand
+        {
+            StartDate = Today.AddDays(-1),
+            EndDate = Today.AddDays(30),
+            Type = CoverType.Yacht
+        };
 
         var response = await Client.PostAsJsonAsync("/Covers", command, Json, Ct);
 
@@ -90,7 +100,12 @@ public class CoversEndpointsTests : ApiTestBase
     public async Task A_period_longer_than_one_year_returns_400()
     {
         var start = Today.AddDays(1);
-        var command = new CreateCoverCommand(start, start.AddYears(1), CoverType.Yacht);
+        var command = new CreateCoverCommand
+        {
+            StartDate = start,
+            EndDate = start.AddYears(1),
+            Type = CoverType.Yacht
+        };
 
         var response = await Client.PostAsJsonAsync("/Covers", command, Json, Ct);
 
@@ -112,7 +127,12 @@ public class CoversEndpointsTests : ApiTestBase
     [Fact]
     public async Task An_end_date_before_the_start_date_returns_400()
     {
-        var command = new CreateCoverCommand(Today.AddDays(10), Today.AddDays(5), CoverType.Yacht);
+        var command = new CreateCoverCommand
+        {
+            StartDate = Today.AddDays(10),
+            EndDate = Today.AddDays(5),
+            Type = CoverType.Yacht
+        };
 
         var response = await Client.PostAsJsonAsync("/Covers", command, Json, Ct);
 
@@ -151,6 +171,34 @@ public class CoversEndpointsTests : ApiTestBase
             Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // Regression: Type used to be a positional non-nullable enum, so omitting it bound silently to
+    // Yacht (0) and sold a 30-day cover at 41,250 instead of a Tanker's 56,250.
+    [Theory]
+    [InlineData("{\"startDate\":\"2030-01-01\",\"endDate\":\"2030-01-30\"}")]
+    [InlineData("{\"endDate\":\"2030-01-30\",\"type\":\"Tanker\"}")]
+    [InlineData("{\"startDate\":\"2030-01-01\",\"type\":\"Tanker\"}")]
+    [InlineData("{}")]
+    public async Task A_cover_missing_a_required_field_returns_400(string body)
+    {
+        var response = await Client.PostAsync("/Covers", JsonBody(body), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task An_omitted_cover_type_is_not_silently_treated_as_yacht()
+    {
+        var start = Today.AddDays(1);
+        var body = $"{{\"startDate\":\"{start:yyyy-MM-dd}\",\"endDate\":\"{start.AddDays(29):yyyy-MM-dd}\"}}";
+
+        var response = await Client.PostAsync("/Covers", JsonBody(body), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var covers = await ReadAsync<List<CoverResponse>>(await Client.GetAsync("/Covers", Ct));
+        Assert.DoesNotContain(covers, cover => cover.StartDate == start && cover.Premium == 41_250.00m);
     }
 
     [Fact]

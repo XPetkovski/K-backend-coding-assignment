@@ -39,7 +39,14 @@ public class ClaimsServiceTests
     }
 
     private static CreateClaimCommand Command(DateOnly? created = null, decimal damageCost = 500m, string coverId = CoverId) =>
-        new(coverId, "Hull damage", ClaimType.Collision, damageCost, created ?? CoverStart);
+        new()
+        {
+            CoverId = coverId,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = damageCost,
+            Created = created ?? CoverStart
+        };
 
     [Fact]
     public async Task Creates_a_claim_and_assigns_an_id()
@@ -117,9 +124,10 @@ public class ClaimsServiceTests
     {
         var command = Command(created: new DateOnly(year, month, day));
 
-        await Assert.ThrowsAsync<DomainException>(
+        var exception = await Assert.ThrowsAsync<DomainException>(
             () => _service.CreateAsync(command, TestContext.Current.CancellationToken));
 
+        Assert.Equal(nameof(CreateClaimCommand.Created), exception.Property);
         Assert.Empty(_claims.Items);
         Assert.Empty(_auditTrail.Events);
     }
@@ -155,7 +163,7 @@ public class ClaimsServiceTests
         Assert.Equal(AuditAction.Deleted, recorded.Action);
         Assert.Equal(created.Id, recorded.EntityId);
     }
-    
+
     [Fact]
     public async Task Does_not_audit_a_delete_of_a_claim_that_does_not_exist()
     {

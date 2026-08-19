@@ -25,7 +25,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     public async Task Creating_a_claim_returns_201_with_a_location_header()
     {
         var cover = await CreateCoverAsync();
-        var command = new CreateClaimCommand(cover.Id, "Hull damage", ClaimType.Collision, 500m, cover.StartDate);
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = 500m,
+            Created = cover.StartDate
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
 
@@ -42,7 +49,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     public async Task The_location_header_points_at_the_new_claim()
     {
         var cover = await CreateCoverAsync();
-        var command = new CreateClaimCommand(cover.Id, "Hull damage", ClaimType.Collision, 500m, cover.StartDate);
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = 500m,
+            Created = cover.StartDate
+        };
 
         var created = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
         var fetched = await Client.GetAsync(created.Headers.Location, Ct);
@@ -97,7 +111,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     public async Task A_damage_cost_above_the_maximum_returns_400_naming_the_field()
     {
         var cover = await CreateCoverAsync();
-        var command = new CreateClaimCommand(cover.Id, "Total loss", ClaimType.Fire, 100_001m, cover.StartDate);
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Total loss",
+            Type = ClaimType.Fire,
+            DamageCost = 100_001m,
+            Created = cover.StartDate
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
 
@@ -111,7 +132,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     public async Task A_damage_cost_of_exactly_the_maximum_is_accepted()
     {
         var cover = await CreateCoverAsync();
-        var command = new CreateClaimCommand(cover.Id, "Total loss", ClaimType.Fire, 100_000m, cover.StartDate);
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Total loss",
+            Type = ClaimType.Fire,
+            DamageCost = 100_000m,
+            Created = cover.StartDate
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
 
@@ -121,12 +149,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     [Fact]
     public async Task A_claim_against_an_unknown_cover_returns_404()
     {
-        var command = new CreateClaimCommand(
-            Guid.NewGuid().ToString(),
-            "Hull damage",
-            ClaimType.Collision,
-            500m,
-            Today.AddDays(2));
+        var command = new CreateClaimCommand
+        {
+            CoverId = Guid.NewGuid().ToString(),
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = 500m,
+            Created = Today.AddDays(2)
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
 
@@ -137,12 +167,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     public async Task A_claim_created_before_the_cover_starts_returns_400()
     {
         var cover = await CreateCoverAsync(startDate: Today.AddDays(10), endDate: Today.AddDays(40));
-        var command = new CreateClaimCommand(
-            cover.Id,
-            "Hull damage",
-            ClaimType.Collision,
-            500m,
-            cover.StartDate.AddDays(-1));
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = 500m,
+            Created = cover.StartDate.AddDays(-1)
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
 
@@ -155,12 +187,14 @@ public class ClaimsEndpointsTests : ApiTestBase
     public async Task A_claim_created_after_the_cover_ends_returns_400()
     {
         var cover = await CreateCoverAsync(startDate: Today.AddDays(10), endDate: Today.AddDays(40));
-        var command = new CreateClaimCommand(
-            cover.Id,
-            "Hull damage",
-            ClaimType.Collision,
-            500m,
-            cover.EndDate.AddDays(1));
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = 500m,
+            Created = cover.EndDate.AddDays(1)
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
 
@@ -189,5 +223,40 @@ public class ClaimsEndpointsTests : ApiTestBase
         var raw = await response.Content.ReadAsStringAsync(Ct);
 
         Assert.Contains($"\"created\":\"{cover.StartDate:yyyy-MM-dd}\"", raw);
+    }
+
+    [Theory]
+    [InlineData("{\"name\":\"Hull damage\",\"damageCost\":500,\"created\":\"2030-01-02\"}")]
+    [InlineData("{\"coverId\":\"c1\",\"damageCost\":500,\"created\":\"2030-01-02\"}")]
+    [InlineData("{\"coverId\":\"c1\",\"name\":\"Hull damage\",\"created\":\"2030-01-02\"}")]
+    [InlineData("{}")]
+    public async Task A_claim_missing_a_required_field_returns_400(string body)
+    {
+        var response = await Client.PostAsync("/Claims", JsonBody(body), Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    // Both kinds of bad input now report the offending field, so a client can bind either to a form
+    // instead of string-matching prose out of "detail".
+    [Fact]
+    public async Task A_created_date_outside_the_cover_period_names_the_field()
+    {
+        var cover = await CreateCoverAsync();
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = 500m,
+            Created = cover.EndDate.AddDays(1)
+        };
+
+        var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await ReadProblemAsync(response);
+        Assert.NotNull(problem.Errors);
+        Assert.Contains(nameof(CreateClaimCommand.Created), problem.Errors!.Keys);
     }
 }

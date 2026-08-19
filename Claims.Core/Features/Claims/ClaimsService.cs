@@ -96,7 +96,8 @@ public class ClaimsService : IClaimsService
         if (created < start || created > end)
         {
             throw new DomainException(
-                $"Claim created date must fall within the cover period {start:yyyy-MM-dd} to {end:yyyy-MM-dd}.");
+                $"Claim created date must fall within the cover period {start:yyyy-MM-dd} to {end:yyyy-MM-dd}.",
+                nameof(CreateClaimCommand.Created));
         }
     }
 

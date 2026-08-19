@@ -7,7 +7,9 @@ namespace Claims.Infrastructure.Mongo;
 
 public class ClaimsContext : DbContext
 {
-    public ClaimsContext(DbContextOptions options)
+    // Must be the generic DbContextOptions<ClaimsContext> with two contexts registered, the
+    // non-generic form resolves whichever was registered last, so it only worked by accident.
+    public ClaimsContext(DbContextOptions<ClaimsContext> options)
         : base(options)
     {
     }

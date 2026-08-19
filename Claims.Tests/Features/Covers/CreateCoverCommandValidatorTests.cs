@@ -11,7 +11,7 @@ public class CreateCoverCommandValidatorTests
     private readonly CreateCoverCommandValidator _validator = new(new FakeClock(Today));
 
     private static CreateCoverCommand Command(DateOnly start, DateOnly end, CoverType type = CoverType.Yacht) =>
-        new(start, end, type);
+        new() { StartDate = start, EndDate = end, Type = type };
 
     [Fact]
     public void Accepts_a_cover_starting_today()

@@ -72,7 +72,7 @@ public class PremiumCalculatorTests
     [InlineData(CoverType.Tanker)]
     public void Charges_base_rate_times_type_multiplier_for_a_single_day(CoverType coverType)
     {
-        var expected = PremiumRates.BaseDayRate * PremiumRates.TypeMultiplier(coverType);
+        var expected = PremiumRates.BaseDayRate * PremiumRates.For(coverType).Multiplier;
 
         Assert.Equal(expected, PremiumFor(1, coverType));
     }
@@ -83,7 +83,7 @@ public class PremiumCalculatorTests
     [InlineData(CoverType.Tanker)]
     public void Charges_the_first_thirty_days_exactly_once(CoverType coverType)
     {
-        var dayRate = PremiumRates.BaseDayRate * PremiumRates.TypeMultiplier(coverType);
+        var dayRate = PremiumRates.BaseDayRate * PremiumRates.For(coverType).Multiplier;
 
         Assert.Equal(30 * dayRate, PremiumFor(30, coverType));
     }
@@ -168,6 +168,7 @@ public class PremiumCalculatorTests
             () => _calculator.Compute(Start, Start.AddDays(-1), CoverType.Yacht));
 
         Assert.Contains("end date", exception.Message);
+        Assert.Equal(nameof(CreateCoverCommand.EndDate), exception.Property);
     }
 
     [Theory]
@@ -180,6 +181,7 @@ public class PremiumCalculatorTests
             () => _calculator.Compute(Start, Start.AddDays(29), (CoverType)coverType));
 
         Assert.Contains("not a known cover type", exception.Message);
+        Assert.Equal(nameof(CreateCoverCommand.Type), exception.Property);
     }
 
     [Fact]

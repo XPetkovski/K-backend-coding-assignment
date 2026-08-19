@@ -27,7 +27,7 @@ public class CoversServiceTests
     }
 
     private static CreateCoverCommand Command(int days = 30, CoverType type = CoverType.Yacht) =>
-        new(Today, Today.AddDays(days - 1), type);
+        new() { StartDate = Today, EndDate = Today.AddDays(days - 1), Type = type };
 
     [Fact]
     public async Task Creates_a_cover_and_assigns_an_id()
@@ -72,7 +72,7 @@ public class CoversServiceTests
     [Fact]
     public async Task Rejects_a_cover_starting_in_the_past()
     {
-        var command = new CreateCoverCommand(Today.AddDays(-1), Today.AddDays(30), CoverType.Yacht);
+        var command = new CreateCoverCommand { StartDate = Today.AddDays(-1), EndDate = Today.AddDays(30), Type = CoverType.Yacht };
 
         var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _service.CreateAsync(command, TestContext.Current.CancellationToken));
@@ -85,7 +85,7 @@ public class CoversServiceTests
     [Fact]
     public async Task Rejects_a_period_longer_than_one_year()
     {
-        var command = new CreateCoverCommand(Today, Today.AddYears(1), CoverType.Yacht);
+        var command = new CreateCoverCommand { StartDate = Today, EndDate = Today.AddYears(1), Type = CoverType.Yacht };
 
         await Assert.ThrowsAsync<ValidationException>(
             () => _service.CreateAsync(command, TestContext.Current.CancellationToken));

@@ -45,7 +45,7 @@ public class AuditBackgroundService : BackgroundService
 
         await base.StopAsync(cancellationToken);
     }
-    
+
     private async Task DrainAsync()
     {
         using var timeout = new CancellationTokenSource(_options.ShutdownDrainTimeout);

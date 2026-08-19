@@ -91,7 +91,14 @@ public class AuditingTests : ApiTestBase
     public async Task A_rejected_claim_writes_no_audit_row()
     {
         var cover = await CreateCoverAsync();
-        var command = new CreateClaimCommand(cover.Id, "Too expensive", ClaimType.Fire, 100_001m, cover.StartDate);
+        var command = new CreateClaimCommand
+        {
+            CoverId = cover.Id,
+            Name = "Too expensive",
+            Type = ClaimType.Fire,
+            DamageCost = 100_001m,
+            Created = cover.StartDate
+        };
 
         var before = await CountClaimAuditsAsync();
 

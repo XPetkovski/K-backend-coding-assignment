@@ -14,7 +14,14 @@ public class CreateClaimCommandValidatorTests
         string coverId = "cover-1",
         string name = "Hull damage",
         ClaimType type = ClaimType.Collision) =>
-        new(coverId, name, type, damageCost, Created);
+        new()
+        {
+            CoverId = coverId,
+            Name = name,
+            Type = type,
+            DamageCost = damageCost,
+            Created = Created
+        };
 
     [Fact]
     public void Accepts_a_valid_claim()

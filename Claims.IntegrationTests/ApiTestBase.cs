@@ -33,10 +33,12 @@ public abstract class ApiTestBase
         DateOnly? endDate = null,
         CoverType coverType = CoverType.Yacht)
     {
-        var command = new CreateCoverCommand(
-            startDate ?? Today.AddDays(1),
-            endDate ?? Today.AddDays(30),
-            coverType);
+        var command = new CreateCoverCommand
+        {
+            StartDate = startDate ?? Today.AddDays(1),
+            EndDate = endDate ?? Today.AddDays(30),
+            Type = coverType
+        };
 
         var response = await Client.PostAsJsonAsync("/Covers", command, Json, Ct);
         response.EnsureSuccessStatusCode();
@@ -46,7 +48,14 @@ public abstract class ApiTestBase
 
     protected async Task<ClaimResponse> CreateClaimAsync(string coverId, DateOnly created, decimal damageCost = 500m)
     {
-        var command = new CreateClaimCommand(coverId, "Hull damage", ClaimType.Collision, damageCost, created);
+        var command = new CreateClaimCommand
+        {
+            CoverId = coverId,
+            Name = "Hull damage",
+            Type = ClaimType.Collision,
+            DamageCost = damageCost,
+            Created = created
+        };
 
         var response = await Client.PostAsJsonAsync("/Claims", command, Json, Ct);
         response.EnsureSuccessStatusCode();
@@ -62,6 +71,9 @@ public abstract class ApiTestBase
 
         return value;
     }
+
+    protected static StringContent JsonBody(string json) =>
+        new(json, System.Text.Encoding.UTF8, "application/json");
 
     protected static async Task<ProblemResponse> ReadProblemAsync(HttpResponseMessage response) =>
         await ReadAsync<ProblemResponse>(response);

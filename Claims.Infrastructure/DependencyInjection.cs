@@ -29,7 +29,7 @@ public static class DependencyInjection
 
         return services.AddQueuedAuditing(configuration);
     }
-    
+
     private static IServiceCollection AddQueuedAuditing(
         this IServiceCollection services,
         IConfiguration configuration)

@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and unit test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - run: dotnet restore
+      - run: dotnet build --no-restore --configuration Release -warnaserror
+      - run: dotnet test Claims.Tests --no-build --configuration Release --logger "console;verbosity=normal"
+
+  integration:
+    name: Integration test
+    runs-on: ubuntu-latest
+    # ubuntu-latest is amd64 with a Docker daemon already running, which is what Testcontainers needs
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - run: dotnet restore
+      - run: dotnet build Claims.IntegrationTests --no-restore --configuration Release
+      - run: dotnet test Claims.IntegrationTests --no-build --configuration Release --logger "console;verbosity=normal"
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
