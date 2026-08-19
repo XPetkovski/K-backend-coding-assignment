@@ -55,13 +55,29 @@ first request.
 ### Tests
 
 ```bash
-dotnet test Claims.Tests                 # 121 unit tests, no I/O, ~50ms
+dotnet test Claims.Tests                 # 122 unit tests, no I/O, ~50ms
 dotnet test Claims.IntegrationTests      # 52 tests over real HTTP + real databases; needs Docker
 ```
+
+The unit suite touches no I/O and needs no Docker — that is the point of `Claims.Core` having no
+package references, and it is what makes the tests worth running on every save.
 
 > **Apple Silicon note:** `mcr.microsoft.com/mssql/server` publishes no arm64 image, so the audit
 > database container requires amd64 emulation (Docker Desktop → *Use Rosetta for x86/amd64
 > emulation*). This applies to the original template too — it is not specific to this solution.
+
+### CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request:
+
+| Job | What it does |
+| --- | --- |
+| Build and unit test | `dotnet build -warnaserror` in Release, then the 122 unit tests |
+| Integration test | the 52 Testcontainers tests against real MongoDB and SQL Server |
+
+Both jobs run on `ubuntu-latest`, which is amd64 with a Docker daemon — so the integration suite runs
+natively there without the emulation an Apple Silicon machine needs. `-warnaserror` means an analyser
+warning fails the build rather than scrolling past.
 
 ---
 
@@ -266,7 +282,7 @@ Stated explicitly, because reasonable people would choose differently:
 | 1 — layering, SOLID, docs | Project split, feature slices, thin controllers, `ProblemDetails`, this README, [`docs/adr/`](docs/adr) |
 | 2 — validation | `Claims.Core/Features/*/Create*CommandValidator.cs`; cross-entity rule in `ClaimsService` |
 | 3 — non-blocking auditing | `Claims.Infrastructure/Auditing/` — `QueuedAuditTrail`, `AuditEventChannel`, `AuditBackgroundService`, `EfAuditWriter` |
-| 4 — tests | `Claims.Tests` (110), `Claims.IntegrationTests` (42) |
+| 4 — tests | `Claims.Tests` (122), `Claims.IntegrationTests` (52) |
 | 5 — premium computation | `Claims.Core/Features/Covers/PremiumCalculator.cs`, `PremiumRates.cs` |
 
 ---
@@ -285,3 +301,8 @@ Called out so the omissions read as decisions rather than oversights:
 - **No optimistic concurrency** — there is no update endpoint in scope.
 - **`Claims.csproj` still references Testcontainers**, to preserve zero-configuration local
   development. A deployment-only build would drop `LocalContainers` and that reference.
+- **Migrations are applied on startup** when `Persistence:ApplyMigrationsOnStartup` is set. Convenient
+  for local work and CI; a deployed environment would normally run them as a separate step, which is
+  why it is a flag rather than unconditional.
+- **`UseHttpsRedirection` without `UseForwardedHeaders`.** Behind a TLS-terminating proxy the app sees
+  HTTP, so this either no-ops or redirect-loops. It would need attention before a real deployment.

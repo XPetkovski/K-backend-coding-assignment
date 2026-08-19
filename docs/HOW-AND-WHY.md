@@ -80,7 +80,7 @@ all. That absence is the load-bearing part of the design. It is a claim — *the
 reach for a database, an HTTP context, or Docker* — that the build verifies on every compile.
 Documentation drifts; this cannot.
 
-It is also why the 121 unit tests run in ~50ms with no containers, which is what makes Task 4
+It is also why the 122 unit tests run in ~50ms with no containers, which is what makes Task 4
 tractable at all.
 
 The rule costs something, and the cost was paid deliberately twice:
@@ -291,7 +291,7 @@ Nothing here needs to be taken on trust:
 
 ```bash
 dotnet build                                    # 0 warnings, 0 errors
-dotnet test Claims.Tests                        # 110 passed, ~50ms, no Docker
+dotnet test Claims.Tests                        # 122 passed, ~50ms, no Docker
 dotnet list Claims.Core/Claims.Core.csproj package
                                                 # "No packages were found for this framework."
 ```
@@ -299,8 +299,24 @@ dotnet list Claims.Core/Claims.Core.csproj package
 The third command is the one worth running. If it ever prints a package, the central claim of this
 design has been broken.
 
-**Not verified:** `Claims.IntegrationTests` — 52 tests, written and discoverable, **never executed**,
-because Docker is not installed on the development machine. Treated as unproven rather than as
-passing. Note also that `mcr.microsoft.com/mssql/server` publishes no arm64 image, so on Apple Silicon
-the SQL container needs Rosetta emulation — a property inherited verbatim from the template's
-`Program.cs`, not introduced here.
+`Claims.IntegrationTests` — 52 tests against real MongoDB and SQL Server — runs in CI rather than
+locally, because `mcr.microsoft.com/mssql/server` publishes no arm64 image and would need Rosetta
+emulation on Apple Silicon. GitHub's `ubuntu-latest` runners are amd64 with a Docker daemon, so the
+suite runs natively there on every push and pull request:
+
+```bash
+dotnet test Claims.IntegrationTests              # 52 passed, ~40s, needs Docker
+```
+
+That first CI run earned its keep immediately. All 52 failed at once, because the collection fixture
+threw during startup: the audit entities declare their string columns as `string?`, the 2022 migration
+snapshot maps them as `NOT NULL`, and **EF Core 9 promoted `PendingModelChangesWarning` from a warning
+into a thrown exception**. Every `Database.Migrate()` call therefore failed.
+
+That drift is inherited, not introduced — the original template called `Database.Migrate()` in
+`Program.cs` and its entities were already `string?` under `<Nullable>enable</Nullable>`, so the defect
+arrived with the .NET 9 upgrade. It had simply never been observable, because nothing booted the
+application. `AlignAuditColumnNullability` closes it, and
+`AuditMigrationsTests.Audit_model_matches_the_latest_migration` compares model to snapshot in memory via
+`HasPendingModelChanges()` — no database, no Docker, ~190ms — so the next drift surfaces as one failing
+unit test rather than 52 fixture errors.

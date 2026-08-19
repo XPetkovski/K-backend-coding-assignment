@@ -35,7 +35,7 @@ Inside each project, code is organised by feature slice (`Features/Claims/`, `Fe
 ## Consequences
 
 - `Claims.Core.csproj` having an empty package-reference list is a compiler-verified claim that the
-  business rules are testable without a database, an HTTP context, or Docker. 121 unit tests run in
+  business rules are testable without a database, an HTTP context, or Docker. 122 unit tests run in
   about 50ms and prove it.
 - A change to one capability stays in one or two folders instead of four.
 - Six projects for roughly 40 source files is on the heavy side. Accepted because Task 1 grades
