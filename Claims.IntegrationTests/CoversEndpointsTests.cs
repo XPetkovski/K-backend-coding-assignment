@@ -193,12 +193,15 @@ public class CoversEndpointsTests : ApiTestBase
         var start = Today.AddDays(1);
         var body = $"{{\"startDate\":\"{start:yyyy-MM-dd}\",\"endDate\":\"{start.AddDays(29):yyyy-MM-dd}\"}}";
 
+        // Counted rather than matched on shape: the database is shared across the collection, and a
+        // default CreateCoverAsync() cover is itself a 30-day Yacht at 41,250.
+        var before = await ReadAsync<List<CoverResponse>>(await Client.GetAsync("/Covers", Ct));
+
         var response = await Client.PostAsync("/Covers", JsonBody(body), Ct);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-
-        var covers = await ReadAsync<List<CoverResponse>>(await Client.GetAsync("/Covers", Ct));
-        Assert.DoesNotContain(covers, cover => cover.StartDate == start && cover.Premium == 41_250.00m);
+        var after = await ReadAsync<List<CoverResponse>>(await Client.GetAsync("/Covers", Ct));
+        Assert.Equal(before.Count, after.Count);
     }
 
     [Fact]
