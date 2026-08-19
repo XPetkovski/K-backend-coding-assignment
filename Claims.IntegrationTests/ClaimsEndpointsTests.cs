@@ -180,7 +180,12 @@ public class ClaimsEndpointsTests : ApiTestBase
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var problem = await ReadProblemAsync(response);
-        Assert.Contains("cover period", problem.Detail ?? string.Empty);
+
+        // The message used to arrive as prose in `detail`; it is now keyed by the field it concerns,
+        // matching the shape a shape-rule failure returns.
+        Assert.NotNull(problem.Errors);
+        Assert.Contains(nameof(CreateClaimCommand.Created), problem.Errors!.Keys);
+        Assert.Contains("cover period", string.Join(" ", problem.Errors[nameof(CreateClaimCommand.Created)]));
     }
 
     [Fact]
